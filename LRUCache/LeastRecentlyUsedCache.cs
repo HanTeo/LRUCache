@@ -3,7 +3,7 @@ using System.Collections.Generic;
 
 namespace LRUCache
 {
-    public class LeastRecentlyUsedCache<TKey, TValue> where TKey : class
+    public class LeastRecentlyUsedCache<TKey, TValue> : ILeastRecentlyUsedCache<TKey, TValue> where TKey : class
     {
         private readonly uint _capacity;
         private readonly ConcurrentDictionary<TKey, Node<TKey,TValue>> _entries;
