@@ -76,7 +76,7 @@ Please bear in mind the following:
 
         private IProvider MakeCache(IProvider provider, IUpdater updater)
         {
-            return new LRUCache.CacheImplementation(provider, updater);
+            return new CacheImplementation(provider, updater);
         }
     }
 }
