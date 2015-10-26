@@ -1,13 +1,11 @@
-﻿using System;
-
-namespace LRUCache
+﻿namespace LRUCache
 {
     public class CacheImplementation : IProvider, IUpdateCallback
     {
-        private IProvider _provider;
-        private IUpdater _updater;
+        private readonly IProvider _provider;
+        private readonly IUpdater _updater;
 
-        private LeastRecentlyUsedCache<string, string> _cache; 
+        private readonly LeastRecentlyUsedCache<string, string> _cache; 
 
         public CacheImplementation(IProvider provider, IUpdater updater, uint capacity=10)
         {
@@ -33,6 +31,11 @@ namespace LRUCache
         public void Updated(string key, string newValue)
         {
             _cache.Set(key, newValue);
+        }
+
+        public override string ToString()
+        {
+            return _cache.ToString();
         }
     }
 }

@@ -1,42 +1,31 @@
-﻿using System;
-using System.Collections.Concurrent;
+﻿using System.Collections.Concurrent;
+using System.Collections.Generic;
 
 namespace LRUCache
 {
-    public class LeastRecentlyUsedCache<TKey, TValue>
+    public class LeastRecentlyUsedCache<TKey, TValue> where TKey : class
     {
         private readonly uint _capacity;
         private readonly ConcurrentDictionary<TKey, Node<TKey,TValue>> _entries;
-        private readonly ConcurrentQueue<TKey> _recentsList; 
         private Node<TKey, TValue> _head;
         private Node<TKey, TValue> _tail;
-
-        static LeastRecentlyUsedCache()
-        {
-            var defVal = default(TValue);
-            if (defVal is ValueType && Nullable.GetUnderlyingType(typeof(TValue)) == null)
-            {
-                throw new TypeLoadException(
-                    $"TValue must be a Reference Type or a Nullable Type: {typeof (TValue)}");
-            }
-        }
 
         public LeastRecentlyUsedCache(uint capacity)
         {
             _capacity = capacity;
             _entries = new ConcurrentDictionary<TKey, Node<TKey, TValue>>();
-            _recentsList = new ConcurrentQueue<TKey>();
         }
 
         public bool TryGetValue(TKey key, out TValue value)
         {
             Node<TKey, TValue> node;
-            if (IsCacheHit(key, out node))
+            if (_entries.TryGetValue(key, out node))
             {
-                Reorder(node);
-
-                value = node.Value;
-
+                lock (node)
+                {
+                    UpdateRecentsList(node);
+                    value = node.Value;
+                }
                 return true;
             }
 
@@ -45,7 +34,7 @@ namespace LRUCache
             return false;
         }
 
-        private void Reorder(Node<TKey, TValue> node)
+        private void UpdateRecentsList(Node<TKey, TValue> node)
         {
             Remove(node);
             Prepend(node);
@@ -54,24 +43,34 @@ namespace LRUCache
         public void Set(TKey key, TValue value)
         {
             Node<TKey, TValue> node;
-            if (IsCacheHit(key, out node))
+            if (_entries.TryGetValue(key, out node))
             {
-                node.Value = value;
-
-                Reorder(node);
+                lock (node)
+                {
+                    node.Value = value;
+                    UpdateRecentsList(node);
+                }
             }
             else
             {
-                if (IsFullCapacity())
+                lock (key)
                 {
-                    Evict();
+                    // If Eviction Necessary
+                    if (_entries.Count >= _capacity)
+                    {
+                        Node<TKey, TValue> evicted;
+                        if (_entries.TryRemove(_tail.Key, out evicted))
+                        {
+                            Remove(evicted);
+                        }
+                    }
+
+                    var newNode = new Node<TKey, TValue>(key, value);
+
+                    Prepend(newNode);
+
+                    _entries.TryAdd(key, newNode);
                 }
-
-                var newNode = new Node<TKey, TValue>(key, value);
-
-                Prepend(newNode);
-
-                _entries.TryAdd(key, newNode);
             }
         }
 
@@ -114,23 +113,17 @@ namespace LRUCache
             }
         }
 
-        private bool IsCacheHit(TKey key, out Node<TKey, TValue> node)
+        public override string ToString()
         {
-            return _entries.TryGetValue(key, out node);
-        }
-
-        private void Evict()
-        {
-            Node<TKey, TValue> evicted;
-            if (_entries.TryRemove(_tail.Key, out evicted))
+            var sb = new List<string>();
+            var curr = _head;
+            while (curr != null)
             {
-                Remove(evicted);
+                sb.Add(curr.Key.ToString());
+                curr = curr.Next;
             }
-        }
 
-        private bool IsFullCapacity()
-        {
-            return _entries.Count >= _capacity;
+            return string.Join(",",sb);
         }
     }
 }
